@@ -8,6 +8,7 @@ import ToastNotifications from './components/ToastNotifications';
 import MetricsView from './components/MetricsView';
 import StudyHub from './components/StudyHub';
 import { supabase } from './supabaseClient';
+import { api } from './api';
 import AuthView from './components/AuthView';
 
 // Pre-filled Kanban tasks (default if localstorage is empty)
@@ -93,26 +94,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('board');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Persistent States loaded from Local Storage
-  const [tasks, setTasks] = useState(() => {
-    const saved = localStorage.getItem('syncflow_tasks');
-    return saved ? JSON.parse(saved) : INITIAL_TASKS;
-  });
-  const [dailyTasks, setDailyTasks] = useState(() => {
-    const saved = localStorage.getItem('syncflow_dailyTasks');
-    return saved ? JSON.parse(saved) : INITIAL_DAILY_TASKS;
-  });
-  const [habits, setHabits] = useState(() => {
-    const saved = localStorage.getItem('syncflow_habits');
-    return saved ? JSON.parse(saved) : INITIAL_HABITS;
-  });
-  const [pomodoroHistory, setPomodoroHistory] = useState(() => {
-    const saved = localStorage.getItem('syncflow_pomodoroHistory');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('syncflow_theme') || 'indigo';
-  });
+  // Persistent States loaded from Supabase
+  const [tasks, setTasks] = useState([]);
+  const [dailyTasks, setDailyTasks] = useState([]);
+  const [habits, setHabits] = useState([]);
+  const [pomodoroHistory, setPomodoroHistory] = useState([]);
+  const [theme, setTheme] = useState('indigo');
 
   // Pomodoro State
   const [pomodoroTime, setPomodoroTime] = useState(1500); // 25 mins
@@ -182,27 +169,50 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  // 1. Local Storage Syncer Effects
+  // Load Data from API when session is active
   useEffect(() => {
-    localStorage.setItem('syncflow_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
+    
+    const loadAllData = async () => {
+      try {
+        const [apiTasks, apiDaily, apiHabits, apiPomo, apiProfile] = await Promise.all([
+          api.fetchTasks(userId),
+          api.fetchDailyTasks(userId),
+          api.fetchHabits(userId),
+          api.fetchPomodoroHistory(userId),
+          api.fetchProfile(userId)
+        ]);
+        setTasks(apiTasks);
+        setDailyTasks(apiDaily);
+        setHabits(apiHabits);
+        setPomodoroHistory(apiPomo);
+        if (apiProfile?.theme) setTheme(apiProfile.theme);
+        if (apiProfile?.audio_mode) setAudioMode(apiProfile.audio_mode);
+        if (apiProfile?.audio_volume) setAudioVolume(apiProfile.audio_volume);
+      } catch (err) {
+        console.error("Error cargando datos:", err);
+      }
+    };
+    
+    loadAllData();
+  }, [session]);
 
+  // Sync profile settings to Supabase
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    localStorage.setItem('syncflow_dailyTasks', JSON.stringify(dailyTasks));
-  }, [dailyTasks]);
-
-  useEffect(() => {
-    localStorage.setItem('syncflow_habits', JSON.stringify(habits));
-  }, [habits]);
-
-  useEffect(() => {
-    localStorage.setItem('syncflow_pomodoroHistory', JSON.stringify(pomodoroHistory));
-  }, [pomodoroHistory]);
-
-  useEffect(() => {
-    localStorage.setItem('syncflow_theme', theme);
-  }, [theme]);
-
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (session?.user?.id) {
+      api.updateProfile(session.user.id, {
+        theme,
+        audio_mode: audioMode,
+        audio_volume: audioVolume
+      }).catch(console.error);
+    }
+  }, [theme, audioMode, audioVolume, session]);
   // 2. Pomodoro Timer Countdown Effect
   useEffect(() => {
     let interval = null;
@@ -246,14 +256,17 @@ export default function App() {
         console.log("Failed to play alarm chime", e);
       }
 
-      const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const completedSession = {
-        id: Date.now().toString(),
-        mode: pomoMode,
-        time: getModeMaxTime(),
-        timestamp: timeString
+      const savePomoSession = async () => {
+        if (!session?.user) return;
+        const sessionData = { mode: pomoMode, time: getModeMaxTime() };
+        try {
+          const dbSession = await api.insertPomodoroSession(sessionData, session.user.id);
+          setPomodoroHistory(prev => [...prev, dbSession]);
+        } catch (e) {
+          console.error(e);
+        }
       };
-      setPomodoroHistory(prev => [...prev, completedSession]);
+      savePomoSession();
 
       if (pomoMode === 'work') {
         addToast('¡Buen trabajo!', 'Completaste una sesión de enfoque.', 'system');
@@ -571,11 +584,12 @@ export default function App() {
   };
 
   // Kanban Handlers
-  const handleMoveTask = (taskId, targetColumnId) => {
+  const handleMoveTask = async (taskId, targetColumnId) => {
     const targetTask = tasks.find(t => t.id === taskId);
     if (!targetTask) return;
 
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, column: targetColumnId } : t));
+    api.updateTask(taskId, { column: targetColumnId }).catch(console.error);
 
     const columnNames = {
       todo: 'Por Hacer',
@@ -588,24 +602,34 @@ export default function App() {
     logActivity('Tú', `moviste a ${columnNames[targetColumnId]}`, targetTask.title, targetColumnId === 'done' ? 'complete' : 'move');
   };
 
-  const handleSaveTask = (taskData) => {
-    if (tasks.some(t => t.id === taskData.id)) {
+  const handleSaveTask = async (taskData) => {
+    const isNew = !tasks.some(t => t.id === taskData.id);
+    if (!isNew) {
       setTasks(prev => prev.map(t => t.id === taskData.id ? taskData : t));
+      api.updateTask(taskData.id, taskData).catch(console.error);
       addToast('Tarea Guardada', `Se actualizaron los detalles de "${taskData.title}".`);
       logActivity('Tú', 'actualizaste', taskData.title, 'move');
     } else {
-      setTasks(prev => [...prev, taskData]);
-      addToast('Tarea Creada', `Creaste la tarea "${taskData.title}".`);
-      logActivity('Tú', 'creaste la tarea', taskData.title, 'create');
+      const { id, ...dataToInsert } = taskData; // remove fake ID
+      try {
+        const newTask = await api.insertTask(dataToInsert, session.user.id);
+        setTasks(prev => [...prev, newTask]);
+        addToast('Tarea Creada', `Creaste la tarea "${newTask.title}".`);
+        logActivity('Tú', 'creaste la tarea', newTask.title, 'create');
+      } catch (e) {
+        console.error(e);
+        addToast('Error', 'No se pudo crear la tarea', 'error');
+      }
     }
     setSelectedTask(null);
   };
 
-  const handleDeleteTask = (taskId) => {
+  const handleDeleteTask = async (taskId) => {
     const targetTask = tasks.find(t => t.id === taskId);
     if (!targetTask) return;
 
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    api.deleteTask(taskId).catch(console.error);
     setSelectedTask(null);
     addToast('Tarea Eliminada', `Eliminaste la tarea "${targetTask.title}".`);
   };
@@ -625,65 +649,67 @@ export default function App() {
   };
 
   // Daily Tasks Handlers
-  const handleToggleDailyTask = (id) => {
-    setDailyTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const nextState = !t.completed;
-        if (nextState) {
-          addToast('Foco Diario', `Completaste: "${t.text}"`);
-        }
-        return { ...t, completed: nextState };
-      }
-      return t;
-    }));
+  const handleToggleDailyTask = async (id) => {
+    const target = dailyTasks.find(t => t.id === id);
+    if (!target) return;
+    const nextState = !target.completed;
+    
+    setDailyTasks(prev => prev.map(t => t.id === id ? { ...t, completed: nextState } : t));
+    api.updateDailyTask(id, { completed: nextState }).catch(console.error);
+
+    if (nextState) {
+      addToast('Foco Diario', `Completaste: "${target.text}"`);
+    }
   };
 
-  const handleAddDailyTask = (text) => {
-    const newTask = {
-      id: Date.now().toString(),
-      text,
-      completed: false,
-      category: 'General'
-    };
-    setDailyTasks(prev => [...prev, newTask]);
-    addToast('Foco Diario', `Agregaste tarea diaria: "${text}"`);
+  const handleAddDailyTask = async (text) => {
+    const newTask = { text, completed: false, category: 'General' };
+    try {
+      const dbTask = await api.insertDailyTask(newTask, session.user.id);
+      setDailyTasks(prev => [...prev, dbTask]);
+      addToast('Foco Diario', `Agregaste tarea diaria: "${text}"`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleDeleteDailyTask = (id) => {
+  const handleDeleteDailyTask = async (id) => {
     setDailyTasks(prev => prev.filter(t => t.id !== id));
+    api.deleteDailyTask(id).catch(console.error);
   };
 
   // Habit Tracker Handlers
-  const handleToggleHabit = (id) => {
-    setHabits(prev => prev.map(h => {
-      if (h.id === id) {
-        const nextCompleted = !h.completed;
-        let nextStreak = h.streak || 0;
-        if (nextCompleted) {
-          nextStreak += 1;
-          addToast('Hábito Completado', `¡Felicidades! Rachas de "${h.text}" subió a ${nextStreak} días.`);
-        } else {
-          nextStreak = Math.max(0, nextStreak - 1);
-        }
-        return { ...h, completed: nextCompleted, streak: nextStreak };
-      }
-      return h;
-    }));
+  const handleToggleHabit = async (id) => {
+    const target = habits.find(h => h.id === id);
+    if (!target) return;
+    
+    const nextCompleted = !target.completed;
+    let nextStreak = target.streak || 0;
+    if (nextCompleted) {
+      nextStreak += 1;
+      addToast('Hábito Completado', `¡Felicidades! Rachas de "${target.text}" subió a ${nextStreak} días.`);
+    } else {
+      nextStreak = Math.max(0, nextStreak - 1);
+    }
+
+    setHabits(prev => prev.map(h => h.id === id ? { ...h, completed: nextCompleted, streak: nextStreak } : h));
+    api.updateHabit(id, { completed: nextCompleted, streak: nextStreak }).catch(console.error);
   };
 
-  const handleAddHabit = (text) => {
-    const newHabit = {
-      id: Date.now().toString(),
-      text,
-      completed: false,
-      streak: 0
-    };
-    setHabits(prev => [...prev, newHabit]);
-    addToast('Hábito Registrado', `Agregaste el hábito: "${text}"`);
+  const handleAddHabit = async (text) => {
+    const newHabit = { text, completed: false, streak: 0 };
+    try {
+      const dbHabit = await api.insertHabit(newHabit, session.user.id);
+      setHabits(prev => [...prev, dbHabit]);
+      addToast('Hábito Registrado', `Agregaste el hábito: "${text}"`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleDeleteHabit = (id) => {
+  const handleDeleteHabit = async (id) => {
     setHabits(prev => prev.filter(h => h.id !== id));
+    api.deleteHabit(id).catch(console.error);
   };
 
   // JSON Export / Import Handlers
