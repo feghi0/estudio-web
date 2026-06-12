@@ -1,7 +1,7 @@
 import React from 'react';
-import { Search, Bell } from 'lucide-react';
+import { Search, Bell, LogOut, User } from 'lucide-react';
 
-export default function Header({ searchVal, setSearchVal, notifications, markAllRead, theme, setTheme }) {
+export default function Header({ searchVal, setSearchVal, notifications, markAllRead, theme, setTheme, user, onLogout }) {
   const [showNotifications, setShowNotifications] = React.useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -111,6 +111,24 @@ export default function Header({ searchVal, setSearchVal, notifications, markAll
             </div>
           )}
         </div>
+
+        {/* User Profile / Logout */}
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid var(--border-color)', paddingLeft: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'white' }}>{user.email?.split('@')[0]}</span>
+              <button 
+                onClick={onLogout}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+              >
+                <LogOut size={10} /> Cerrar sesión
+              </button>
+            </div>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              <User size={16} />
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

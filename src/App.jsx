@@ -7,6 +7,8 @@ import TaskDetailModal from './components/TaskDetailModal';
 import ToastNotifications from './components/ToastNotifications';
 import MetricsView from './components/MetricsView';
 import StudyHub from './components/StudyHub';
+import { supabase } from './supabaseClient';
+import AuthView from './components/AuthView';
 
 // Pre-filled Kanban tasks (default if localstorage is empty)
 const INITIAL_TASKS = [
@@ -156,6 +158,29 @@ export default function App() {
 
   // Selected task for modal details
   const [selectedTask, setSelectedTask] = useState(null);
+
+  // Auth State
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   // 1. Local Storage Syncer Effects
   useEffect(() => {
@@ -707,6 +732,14 @@ export default function App() {
     fileReader.readAsText(file);
   };
 
+  if (authLoading) {
+    return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#050505', color: 'var(--text-muted)' }}>Cargando SyncFlow...</div>;
+  }
+
+  if (!session) {
+    return <div className={`theme-${theme}`}><AuthView /></div>;
+  }
+
   return (
     <div className={`app-container theme-${theme}`}>
       <Sidebar
@@ -727,6 +760,8 @@ export default function App() {
           markAllRead={markAllNotificationsRead}
           theme={theme}
           setTheme={setTheme}
+          user={session?.user}
+          onLogout={handleLogout}
         />
 
         <div className="content-body">
