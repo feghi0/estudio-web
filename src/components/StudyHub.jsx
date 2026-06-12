@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, BookOpen, FileText, Send, Sparkles, Brain, HelpCircle, GraduationCap, ChevronLeft, Type, Play, Pause, RotateCcw, Download, TrendingUp, Plus, Trash2, ZoomIn, ZoomOut, Calendar } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import useChatStorage from '../hooks/useChatStorage';
 
 export default function StudyHub({
   pomodoroTime,
@@ -22,14 +23,8 @@ export default function StudyHub({
 
   // AI Chat state
   const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 'welcome',
-      sender: 'bot',
-      text: '¡Hola! Soy EduBot, tu asistente de estudio personal. Sube un documento de estudio y podré resumírtelo, crearte cuestionarios interactivos de opción múltiple para repasar o explicarte conceptos difíciles. ¿Con qué empezamos hoy?',
-      time: 'Ahora'
-    }
-  ]);
+  const materialId = selectedFile ? selectedFile.name : null;
+  const { chatMessages, setChatMessages, clearChat } = useChatStorage(materialId);
   const [isBotAnalyzing, setIsBotAnalyzing] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState(null);
   const [selectedQuizOption, setSelectedQuizOption] = useState(null);
@@ -631,11 +626,18 @@ export default function StudyHub({
     }, 1500);
   };
 
-
   // --- Refactored AI Chat Handler ---
   const sendMessageToBot = async (messageText) => {
     if (!messageText.trim()) return;
 
+    const userMsg = {
+      id: Date.now().toString(),
+      sender: 'user',
+      text: messageText.trim(),
+      time: 'Hace un momento'
+    };
+
+    setChatMessages(prev => [...prev, userMsg]);
     setIsBotAnalyzing(true);
 
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -661,15 +663,12 @@ export default function StudyHub({
 
     try {
       const contents = [];
-      chatMessages.filter(msg => msg.id !== 'welcome').forEach(msg => {
+      const updatedHistory = [...chatMessages, userMsg];
+      updatedHistory.filter(msg => msg.id !== 'welcome' && !msg.isQuiz && !msg.isTimelineSuggestion).forEach(msg => {
         contents.push({
           role: msg.sender === 'bot' ? 'model' : 'user',
           parts: [{ text: msg.text }]
         });
-      });
-      contents.push({
-        role: 'user',
-        parts: [{ text: messageText.trim() }]
       });
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -687,7 +686,7 @@ export default function StudyHub({
       const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No se pudo obtener una respuesta.";
 
       const botMsg = {
-        id: Date.now().toString(),
+        id: (Date.now() + 1).toString(),
         sender: 'bot',
         text: responseText,
         time: 'Hace un momento',
@@ -701,7 +700,6 @@ export default function StudyHub({
     }
     setIsBotAnalyzing(false);
   };
-
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -1367,6 +1365,34 @@ export default function StudyHub({
                   }}>
                     <GraduationCap size={12} />
                     <span>Técnicas</span>
+                  </button>
+                  <button 
+                    type="button"
+                    className="ai-action-chip" 
+                    onClick={clearChat}
+                    style={{ 
+                      marginLeft: 'auto',
+                      color: '#94a3b8',
+                      border: '1px dashed rgba(255,255,255,0.08)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#f87171';
+                      e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#94a3b8';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                    title="Borrar historial del chat de este documento"
+                  >
+                    <Trash2 size={12} />
+                    <span>Limpiar Chat</span>
                   </button>
                 </div>
 

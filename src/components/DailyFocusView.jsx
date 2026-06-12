@@ -282,6 +282,14 @@ export default function DailyFocusView({
       {/* Right side: Pomodoro Widget */}
       <div>
         <div className="glass-panel pomodoro-card">
+          <div className="focus-header-row" style={{ width: '100%', marginBottom: '24px' }}>
+            <div>
+              <div className="focus-title">Temporizador de Enfoque</div>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Gestiona tus ciclos de trabajo y descanso
+              </p>
+            </div>
+          </div>
           <div className="pomo-modes">
             <button
               className={`pomo-mode-btn ${pomoMode === 'work' ? 'active' : ''}`}

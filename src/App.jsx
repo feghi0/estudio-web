@@ -147,19 +147,30 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState(null);
 
   // Auth State
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState({
+    user: { id: 'dummy-user', email: 'local-dev@example.com' }
+  });
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    supabase.auth.getSession().then(({ data: { session: activeSession } }) => {
+      if (activeSession) {
+        setSession(activeSession);
+      }
       setAuthLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    } = supabase.auth.onAuthStateChange((_event, activeSession) => {
+      if (activeSession) {
+        setSession(activeSession);
+      } else {
+        // Fall back to dummy user for local development if logged out
+        setSession({
+          user: { id: 'dummy-user', email: 'local-dev@example.com' }
+        });
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -183,15 +194,19 @@ export default function App() {
           api.fetchPomodoroHistory(userId),
           api.fetchProfile(userId)
         ]);
-        setTasks(apiTasks);
-        setDailyTasks(apiDaily);
-        setHabits(apiHabits);
+        setTasks(apiTasks.length > 0 ? apiTasks : INITIAL_TASKS);
+        setDailyTasks(apiDaily.length > 0 ? apiDaily : INITIAL_DAILY_TASKS);
+        setHabits(apiHabits.length > 0 ? apiHabits : INITIAL_HABITS);
         setPomodoroHistory(apiPomo);
         if (apiProfile?.theme) setTheme(apiProfile.theme);
         if (apiProfile?.audio_mode) setAudioMode(apiProfile.audio_mode);
         if (apiProfile?.audio_volume) setAudioVolume(apiProfile.audio_volume);
       } catch (err) {
         console.error("Error cargando datos:", err);
+        // Fallback to local default data for development / offline preview
+        setTasks(INITIAL_TASKS);
+        setDailyTasks(INITIAL_DAILY_TASKS);
+        setHabits(INITIAL_HABITS);
       }
     };
     
