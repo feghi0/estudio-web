@@ -94,7 +94,7 @@ export default function StudyHub({
         doc.setDrawColor(226, 232, 240);
         doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Generado automáticamente por SyncFlow StudyHub`, margin, pageHeight - 10);
+        doc.text(`Generado automáticamente por EduBot StudyHub`, margin, pageHeight - 10);
         doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
       };
 
@@ -360,7 +360,10 @@ export default function StudyHub({
     1. Escribe el problema planteado.
     2. Divide la explicación detallada en pasos claros y numerados (ej. "Paso 1: [Acción]"). En cada paso, explica brevemente y con claridad la regla algebraica o de cálculo aplicada.
     3. Concluye mostrando el resultado final de forma destacada en negrita y en su propia línea.
-    Usa una notación matemática clara y limpia.
+    
+    REGLAS DE FORMATO CRÍTICAS:
+    - Usa una notación matemática clara y limpia.
+    - BAJO NINGUNA CIRCUNSTANCIA uses bloques de código de markdown (como triple comilla invertida \`\`\` o bloques de código monospace) para fórmulas, ecuaciones, operaciones o explicaciones matemáticas. Escribe toda tu respuesta, incluyendo cualquier ecuación o fórmula, como texto plano estructurado (por ejemplo, usando negritas o viñetas si es necesario), pero NUNCA en bloques de código o cajas monospace.
     `;
 
     try {
@@ -651,14 +654,30 @@ export default function StudyHub({
       ? `Documento cargado por el estudiante (${selectedFile?.name}):\n---\n${fileContent}\n---\n` 
       : (selectedFile ? `El estudiante está leyendo el archivo llamado "${selectedFile.name}".` : '');
     
+    let tutorInstructions = '';
+    let includeCodeExamplesRule = '2. Si el tema lo requiere, brinda ejemplos sencillos de código o listas ordenadas.';
+    
+    if (selectedTutor === 'math') {
+      tutorInstructions = `
+      - Actúas específicamente como un tutor matemático y de álgebra.
+      - IMPORTANTE: Bajo ninguna circunstancia uses bloques de código de markdown (como triple comilla invertida \`\`\` o bloques de código monospace) para fórmulas, ecuaciones o explicaciones matemáticas. Escribe toda tu respuesta, incluyendo cualquier ecuación o fórmula, como texto plano estructurado (por ejemplo, usando negritas o viñetas si es necesario), pero NUNCA en bloques de código.
+      `;
+      includeCodeExamplesRule = '2. BAJO NINGUNA CIRCUNSTANCIA uses bloques de código o monospace (ej. triple comilla invertida \`\`\`) para escribir fórmulas, ecuaciones o explicaciones matemáticas. Escríbelas en texto enriquecido plano.';
+    } else if (selectedTutor === 'history') {
+      tutorInstructions = `
+      - Actúas específicamente como un tutor de historia y cronología. Ayuda al estudiante a ubicar temporalmente los eventos, entender causas y consecuencias de forma clara.
+      `;
+    }
+
     const systemPrompt = `
-    Eres EduBot, un tutor virtual de inteligencia artificial integrado en la plataforma de estudio SyncFlow.
+    Eres EduBot, un tutor virtual de inteligencia artificial integrado en la plataforma de estudio EduBot.
     Tu objetivo es ayudar al usuario a comprender y repasar su material de estudio de manera didáctica, clara y motivadora.
     ${fileContext}
     Instrucciones de respuesta:
     1. Responde a las dudas del estudiante de forma comprensible, amigable y estructurada usando formato Markdown.
-    2. Si el tema lo requiere, brinda ejemplos sencillos de código o listas ordenadas.
+    ${includeCodeExamplesRule}
     3. Sé conciso y enfócate en el valor educativo del concepto.
+    ${tutorInstructions}
     `;
 
     try {
@@ -709,7 +728,7 @@ export default function StudyHub({
   // Load notes for the specific file name
   useEffect(() => {
     if (selectedFile) {
-      const savedNotes = localStorage.getItem(`syncflow_notes_${selectedFile.name}`);
+      const savedNotes = localStorage.getItem(`edubot_notes_${selectedFile.name}`);
       setNotesText(savedNotes || '');
     } else {
       setNotesText('');
@@ -721,7 +740,7 @@ export default function StudyHub({
     const text = e.target.value;
     setNotesText(text);
     if (selectedFile) {
-      localStorage.setItem(`syncflow_notes_${selectedFile.name}`, text);
+      localStorage.setItem(`edubot_notes_${selectedFile.name}`, text);
     }
   };
 
@@ -1287,7 +1306,7 @@ export default function StudyHub({
               /* PDF View rendering in iframe */
               <iframe
                 src={fileUrl}
-                title="Lector de PDF SyncFlow"
+                title="Lector de PDF EduBot"
                 width="100%"
                 height="100%"
                 style={{ border: 'none', borderRadius: 'var(--radius-lg)' }}
@@ -1317,13 +1336,15 @@ export default function StudyHub({
                 <Sparkles size={14} />
                 <span>Asistente AI</span>
               </button>
-              <button 
-                className={`study-tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}
-                onClick={() => setActiveTab('timeline')}
-              >
-                <Calendar size={14} />
-                <span>Línea de Tiempo</span>
-              </button>
+              {selectedTutor !== 'math' && (
+                <button 
+                  className={`study-tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('timeline')}
+                >
+                  <Calendar size={14} />
+                  <span>Línea de Tiempo</span>
+                </button>
+              )}
               <button 
                 className={`study-tab-btn ${activeTab === 'math' ? 'active' : ''}`}
                 onClick={() => setActiveTab('math')}

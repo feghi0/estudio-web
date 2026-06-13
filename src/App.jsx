@@ -136,10 +136,10 @@ export default function App() {
   // UI Toast and Notification states
   const [toasts, setToasts] = useState([]);
   const [notifications, setNotifications] = useState([
-    { id: 'n1', title: 'Proyecto SyncFlow Creado', body: 'Has iniciado tu espacio de trabajo personal.', time: 'Hace 3 horas', read: true }
+    { id: 'n1', title: 'Proyecto EduBot Creado', body: 'Has iniciado tu espacio de trabajo personal.', time: 'Hace 3 horas', read: true }
   ]);
   const [activityLogs, setActivityLogs] = useState([
-    { id: 'l1', userName: 'Tú', actionText: 'creaste el espacio de trabajo', targetName: 'SyncFlow', type: 'create', time: 'Hace 3 horas' },
+    { id: 'l1', userName: 'Tú', actionText: 'creaste el espacio de trabajo', targetName: 'EduBot', type: 'create', time: 'Hace 3 horas' },
     { id: 'l2', userName: 'Tú', actionText: 'agregaste nota en', targetName: 'Diseñar Dashboard Principal UI/UX', type: 'comment', time: 'Hace 2 horas' }
   ]);
 
@@ -147,30 +147,19 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState(null);
 
   // Auth State
-  const [session, setSession] = useState({
-    user: { id: 'dummy-user', email: 'local-dev@example.com' }
-  });
+  const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: activeSession } }) => {
-      if (activeSession) {
-        setSession(activeSession);
-      }
+      setSession(activeSession);
       setAuthLoading(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, activeSession) => {
-      if (activeSession) {
-        setSession(activeSession);
-      } else {
-        // Fall back to dummy user for local development if logged out
-        setSession({
-          user: { id: 'dummy-user', email: 'local-dev@example.com' }
-        });
-      }
+      setSession(activeSession);
     });
 
     return () => subscription.unsubscribe();
@@ -194,19 +183,19 @@ export default function App() {
           api.fetchPomodoroHistory(userId),
           api.fetchProfile(userId)
         ]);
-        setTasks(apiTasks.length > 0 ? apiTasks : INITIAL_TASKS);
-        setDailyTasks(apiDaily.length > 0 ? apiDaily : INITIAL_DAILY_TASKS);
-        setHabits(apiHabits.length > 0 ? apiHabits : INITIAL_HABITS);
+        setTasks(apiTasks);
+        setDailyTasks(apiDaily);
+        setHabits(apiHabits);
         setPomodoroHistory(apiPomo);
         if (apiProfile?.theme) setTheme(apiProfile.theme);
         if (apiProfile?.audio_mode) setAudioMode(apiProfile.audio_mode);
         if (apiProfile?.audio_volume) setAudioVolume(apiProfile.audio_volume);
       } catch (err) {
         console.error("Error cargando datos:", err);
-        // Fallback to local default data for development / offline preview
-        setTasks(INITIAL_TASKS);
-        setDailyTasks(INITIAL_DAILY_TASKS);
-        setHabits(INITIAL_HABITS);
+        // Fallback to empty state
+        setTasks([]);
+        setDailyTasks([]);
+        setHabits([]);
       }
     };
     
@@ -607,9 +596,9 @@ export default function App() {
     api.updateTask(taskId, { column: targetColumnId }).catch(console.error);
 
     const columnNames = {
-      todo: 'Por Hacer',
-      inprogress: 'En Progreso',
-      review: 'En Revisión',
+      todo: 'Por Estudiar',
+      inprogress: 'En Estudio',
+      review: 'Por Repasar',
       done: 'Completado'
     };
 
@@ -649,14 +638,14 @@ export default function App() {
     addToast('Tarea Eliminada', `Eliminaste la tarea "${targetTask.title}".`);
   };
 
-  const handleAddTaskClick = () => {
+  const handleAddTaskClick = (prefilledValues = {}) => {
     setSelectedTask({
-      title: '',
-      desc: '',
-      column: 'todo',
-      priority: 'medium',
-      tags: ['Frontend'],
-      dueDate: '',
+      title: prefilledValues.title || '',
+      desc: prefilledValues.desc || '',
+      column: prefilledValues.column || 'todo',
+      priority: prefilledValues.priority || 'medium',
+      tags: prefilledValues.tags || ['Estudio'],
+      dueDate: prefilledValues.dueDate || '',
       assignees: [],
       subtasks: [],
       comments: []
@@ -740,7 +729,7 @@ export default function App() {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", "syncflow-backup.json");
+      downloadAnchor.setAttribute("download", "edubot-backup.json");
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -774,7 +763,7 @@ export default function App() {
   };
 
   if (authLoading) {
-    return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#050505', color: 'var(--text-muted)' }}>Cargando SyncFlow...</div>;
+    return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#050505', color: 'var(--text-muted)' }}>Cargando EduBot...</div>;
   }
 
   if (!session) {

@@ -8,10 +8,10 @@ const WELCOME_MESSAGE = {
 };
 
 export default function useChatStorage(materialId) {
-  // Inicializar el estado de los mensajes buscando en LocalStorage bajo la llave syncflow_chat_${materialId}
+  // Inicializar el estado de los mensajes buscando en LocalStorage bajo la llave edubot_chat_${materialId}
   const [state, setState] = useState(() => {
     if (!materialId) return { id: null, messages: [WELCOME_MESSAGE] };
-    const key = `syncflow_chat_${materialId}`;
+    const key = `edubot_chat_${materialId}`;
     const saved = localStorage.getItem(key);
     return {
       id: materialId,
@@ -22,7 +22,7 @@ export default function useChatStorage(materialId) {
   // useEffect para limpiar la pantalla y cargar el historial correcto si cambia de material de estudio
   useEffect(() => {
     if (materialId) {
-      const key = `syncflow_chat_${materialId}`;
+      const key = `edubot_chat_${materialId}`;
       const saved = localStorage.getItem(key);
       setState({
         id: materialId,
@@ -44,14 +44,14 @@ export default function useChatStorage(materialId) {
     // si el estado de los mensajes aún no se ha actualizado con el cargado en el useEffect anterior
     if (state.id !== materialId) return;
 
-    const key = `syncflow_chat_${materialId}`;
+    const key = `edubot_chat_${materialId}`;
     localStorage.setItem(key, JSON.stringify(state.messages));
   }, [state.messages, state.id, materialId]);
 
   // Proveer una función clearChat para borrar el LocalStorage de ese material específico y vaciar el estado de la pantalla
   const clearChat = useCallback(() => {
     if (materialId) {
-      const key = `syncflow_chat_${materialId}`;
+      const key = `edubot_chat_${materialId}`;
       localStorage.removeItem(key);
     }
     setState({

@@ -14,9 +14,9 @@ export default function MetricsView({ tasks, dailyTasks, pomodoroHistory, habits
 
   // Productivity Score Calculation (out of 100)
   // 40% Kanban, 30% Daily, 30% Habits
-  const kanbanWeight = totalTasks > 0 ? (completedTasks / totalTasks) * 40 : 40;
-  const dailyWeight = totalDaily > 0 ? (completedDaily / totalDaily) * 30 : 30;
-  const habitsWeight = totalHabits > 0 ? (completedHabits / totalHabits) * 30 : 30;
+  const kanbanWeight = totalTasks > 0 ? (completedTasks / totalTasks) * 40 : 0;
+  const dailyWeight = totalDaily > 0 ? (completedDaily / totalDaily) * 30 : 0;
+  const habitsWeight = totalHabits > 0 ? (completedHabits / totalHabits) * 30 : 0;
   const productivityScore = Math.round(kanbanWeight + dailyWeight + habitsWeight);
 
   const getScoreLabel = (score) => {

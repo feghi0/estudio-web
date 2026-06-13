@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, CheckSquare, BarChart3, Clock, Sparkles, Download, Upload, BookOpen } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, BarChart3, Clock, Sparkles, Download, Upload, BookOpen, Calendar } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, pomodoroTime, isPomoRunning, pomoMode, onExportData, onImportData }) {
   const formatTime = (seconds) => {
@@ -18,10 +18,10 @@ export default function Sidebar({ activeTab, setActiveTab, pomodoroTime, isPomoR
     <aside className="sidebar">
       <div>
         <div className="sidebar-logo">
-          <div className="logo-icon">
-            <Sparkles size={20} />
+          <div className="logo-icon" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/edubot-logo.png" alt="EduBot Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
-          <span className="logo-text">SyncFlow</span>
+          <span className="logo-text">EduBot</span>
         </div>
 
         <nav className="sidebar-nav">
@@ -29,8 +29,8 @@ export default function Sidebar({ activeTab, setActiveTab, pomodoroTime, isPomoR
             className={`nav-item ${activeTab === 'board' ? 'active' : ''}`}
             onClick={() => setActiveTab('board')}
           >
-            <LayoutDashboard size={18} />
-            <span>Tablero Colaborativo</span>
+            <Calendar size={18} />
+            <span>Planificador de Estudio</span>
           </button>
           <button
             className={`nav-item ${activeTab === 'focus' ? 'active' : ''}`}
