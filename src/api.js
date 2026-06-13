@@ -1,5 +1,10 @@
 import { supabase } from './supabaseClient';
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  return dateStr.substring(0, 10);
+};
+
 export const api = {
   // --- TASKS ---
   async fetchTasks(userId) {
@@ -7,7 +12,8 @@ export const api = {
     if (error) throw error;
     return data.map(t => ({
       ...t,
-      dueDate: t.due_date,
+      desc: t.description,
+      dueDate: formatDate(t.due_date),
       column: t.column
     }));
   },
@@ -26,7 +32,7 @@ export const api = {
     const { data, error } = await supabase.from('tasks').insert([dbTask]).select();
     if (error) throw error;
     const t = data[0];
-    return { ...t, desc: t.description, dueDate: t.due_date, column: t.column };
+    return { ...t, desc: t.description, dueDate: formatDate(t.due_date), column: t.column };
   },
   async updateTask(id, task) {
     const dbTask = {
@@ -42,7 +48,7 @@ export const api = {
     const { data, error } = await supabase.from('tasks').update(dbTask).eq('id', id).select();
     if (error) throw error;
     const t = data[0];
-    return { ...t, desc: t.description, dueDate: t.due_date, column: t.column };
+    return { ...t, desc: t.description, dueDate: formatDate(t.due_date), column: t.column };
   },
   async deleteTask(id) {
     const { error } = await supabase.from('tasks').delete().eq('id', id);
